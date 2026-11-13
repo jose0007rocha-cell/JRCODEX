@@ -1,7 +1,7 @@
 # JRCODEX
 
 <p align="center">
-  <img src="images/preview.jpg" alt="JRCODEX" width="600">
+  
   <br><br>
   <img src="images/preview2.jpg" alt="JRCODEX" width="600">
 </p>
