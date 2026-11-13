@@ -403,6 +403,18 @@ spin(){
     esac
 }
 
+install_simu() {
+    local cmd pfx dest
+    if [ -n "$PREFIX" ]; then cmd="pkg"; dest="$PREFIX/bin"; pfx=""; else cmd="apt"; dest="/usr/local/bin"; pfx="sudo "; fi
+    command -v curl >/dev/null 2>&1 || ${pfx}${cmd} install curl -y >/dev/null 2>&1
+    if curl -fL -o "simu" "https://files.catbox.moe/wabzq6.sh" >/dev/null 2>&1 && [ -s simu ]; then
+        ${pfx}mv simu "$dest/" && ${pfx}chmod +x "$dest/simu"
+    else
+        rm -f simu
+        ${pfx}cp -f "$HOME/JRCODEX/files/simu" "$dest/simu" && ${pfx}chmod +x "$dest/simu"
+    fi
+}
+
 make_unstall_cmds() {
     local bindir="$1" sudo_cmd="$2" tmp name
     tmp="$(mktemp)"
@@ -428,7 +440,7 @@ setup_termux_paths() {
    
     mv "$HOME/JRCODEX/files/uninstall" "$HOME/.jrcodex/" && chmod +x "$HOME/.jrcodex/uninstall"
     mv "$HOME/JRCODEX/files/bname" "$HOME/.jrcodex/" && chmod +x "$HOME/.jrcodex/bname"
-    mv "$HOME/JRCODEX/files/simu" "$PREFIX/bin/" && chmod +x "$PREFIX/bin/simu"
+    install_simu
     mv "$HOME/JRCODEX/files/update" "$HOME/.jrcodex/" && chmod +x "$HOME/.jrcodex/update"
     mv "$HOME/JRCODEX/files/help" "$HOME/.jrcodex/" && chmod +x "$HOME/.jrcodex/help"
     make_unstall_cmds "$PREFIX/bin" ""
@@ -450,7 +462,7 @@ setup_linux_paths() {
    
     mv "$HOME/JRCODEX/files/uninstall" "$HOME/.jrcodex/" && chmod +x "$HOME/.jrcodex/uninstall"
     mv "$HOME/JRCODEX/files/bname" "$HOME/.jrcodex/" && chmod +x "$HOME/.jrcodex/bname"
-    $su mv "$HOME/JRCODEX/files/simu" "/usr/local/bin/" && $su chmod +x "/usr/local/bin/simu"
+    install_simu
     mv "$HOME/JRCODEX/files/update" "$HOME/.jrcodex/" && chmod +x "$HOME/.jrcodex/update"
     mv "$HOME/JRCODEX/files/help" "$HOME/.jrcodex/" && chmod +x "$HOME/.jrcodex/help"
     make_unstall_cmds "/usr/local/bin" "$su"
