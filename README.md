@@ -3,7 +3,7 @@
 <p align="center">
   
   <br><br>
-  <img src="images/preview2.jpg" alt="JRCODEX" width="600">
+        <img src="images/preview2.jpg" alt="JRCODEX" width="600">
 </p>
 
 ## 🔮 FEATURES:
