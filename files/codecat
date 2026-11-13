@@ -1,0 +1,343 @@
+
+import math
+import os
+import random
+import re
+import sys
+import time
+
+# ANSI escape sequence regex (to strip/preserve existing escape codes cleanly)
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+# Vibrant 24-bit RGB color palette for smooth custom mixing
+COLOR_MAP = {
+    "red": (255, 59, 48),
+    "green": (40, 255, 110),
+    "blue": (0, 140, 255),
+    "cyan": (0, 245, 255),
+    "magenta": (255, 45, 185),
+    "yellow": (255, 230, 32),
+    "orange": (255, 149, 0),
+    "purple": (185, 80, 255),
+    "violet": (145, 70, 255),
+    "pink": (255, 95, 175),
+    "lime": (165, 255, 30),
+    "gold": (255, 205, 35),
+    "aqua": (0, 255, 215),
+    "teal": (0, 195, 180),
+    "sky": (80, 205, 255),
+    "indigo": (95, 90, 255),
+    "crimson": (255, 30, 85),
+    "coral": (255, 115, 95),
+    "mint": (85, 255, 180),
+    "rose": (255, 75, 130),
+    "amber": (255, 185, 15),
+    "lavender": (205, 165, 255),
+    "white": (245, 248, 255),
+    "silver": (195, 205, 220),
+    "gray": (140, 150, 165),
+    "grey": (140, 150, 165),
+}
+
+
+def check_codex_folder():
+    """Verify that $HOME/.jrcodex exists before running."""
+    home_dir = os.environ.get("HOME") or os.path.expanduser("~")
+    codex_path = os.path.join(home_dir, ".jrcodex")
+    if not os.path.isdir(codex_path):
+        sys.stdout.write("[Ã—] JRCodex Not Exits!\n")
+        sys.stdout.flush()
+        sys.exit(1)
+
+
+def parse_color_token(token):
+    """Resolve a color name or hex code (#RRGGBB) to an (R, G, B) tuple."""
+    clean = token.strip().lower().lstrip("#")
+    if not clean:
+        return None
+    if clean in COLOR_MAP:
+        return COLOR_MAP[clean]
+    if len(clean) == 6 and all(c in "0123456789abcdef" for c in clean):
+        return (int(clean[0:2], 16), int(clean[2:4], 16), int(clean[4:6], 16))
+    return None
+
+
+def ruby_lolcat_rainbow(freq, i):
+    """
+    Exact sine-wave formula used by Ruby's `gem install lolcat`
+    for silky-smooth 24-bit TrueColor transitions without color banding.
+    """
+    r = int(math.sin(freq * i + 0.0) * 127 + 128)
+    g = int(math.sin(freq * i + 2.0 * math.pi / 3.0) * 127 + 128)
+    b = int(math.sin(freq * i + 4.0 * math.pi / 3.0) * 127 + 128)
+    return (
+        max(0, min(255, r)),
+        max(0, min(255, g)),
+        max(0, min(255, b)),
+    )
+
+
+def custom_gradient_color(colors, freq, i):
+    """
+    Smooth cosine-interpolated gradient across user-supplied colors.
+    Cycles seamlessly across any number of custom colors (1, 2, 3, or more).
+    """
+    n = len(colors)
+    if n == 1:
+        return colors[0]
+
+    # Scale phase so transitions match the visual smoothness of Ruby lolcat
+    pos = abs(i * freq * 0.45) % n
+    idx1 = int(math.floor(pos)) % n
+    idx2 = (idx1 + 1) % n
+    frac = pos - math.floor(pos)
+
+    # Cosine interpolation for ultra-smooth blending without sharp seams
+    mu = (1.0 - math.cos(frac * math.pi)) / 2.0
+
+    c1 = colors[idx1]
+    c2 = colors[idx2]
+    r = int(c1[0] * (1.0 - mu) + c2[0] * mu)
+    g = int(c1[1] * (1.0 - mu) + c2[1] * mu)
+    b = int(c1[2] * (1.0 - mu) + c2[2] * mu)
+    return (
+        max(0, min(255, r)),
+        max(0, min(255, g)),
+        max(0, min(255, b)),
+    )
+
+
+def print_help():
+    help_text = """Usage: codecat [OPTION]... [FILE]...
+
+Concatenate FILE(s), or standard input, to standard output with smooth
+24-bit TrueColor rainbow or custom color gradients.
+
+Options:
+  -random, --random          Smooth classic lolcat rainbow mode (default)
+  -<color1,color2,...>       Custom smooth color mix (e.g. -cyan,blue,green or -blue,red)
+  -c, --colors <list>        Comma-separated list of colors to mix
+  -p, --spread <float>       Rainbow spread / inclination (default: 3.0)
+  -F, --freq <float>         Rainbow frequency (default: 0.1)
+  -S, --seed <int>           Starting color seed (default: random)
+  -a, --animate              Enable smooth color animation effect
+  -d, --duration <int>       Animation duration in steps (default: 12)
+  -s, --speed <float>        Animation speed in Hz (default: 20.0)
+  -i, --invert               Invert foreground and background
+  -h, --help                 Show this help message
+
+Available Color Names:
+  red, green, blue, cyan, magenta, yellow, orange, purple, violet, pink,
+  lime, gold, aqua, teal, sky, indigo, crimson, coral, mint, rose, amber,
+  lavender, white, silver, gray (or hex codes like #00ffcc)
+
+Examples:
+  simu "Dx-Simu" | codecat
+  simu "Dx-Simu" | codecat -random
+  simu "Dx-Simu" | codecat -cyan,blue,green
+  simu "Dx-Simu" | codecat -blue,red
+"""
+    sys.stdout.write(help_text)
+    sys.exit(0)
+
+
+def parse_args(argv):
+    config = {
+        "mode": "random",
+        "custom_colors": [],
+        "spread": 3.0,
+        "freq": 0.1,
+        "seed": None,
+        "animate": False,
+        "duration": 12,
+        "speed": 20.0,
+        "invert": False,
+        "files": [],
+    }
+
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+
+        if arg in ("-h", "--help"):
+            print_help()
+
+        elif arg in ("-random", "--random", "-r"):
+            config["mode"] = "random"
+            config["custom_colors"] = []
+
+        elif arg in ("-a", "--animate"):
+            config["animate"] = True
+
+        elif arg in ("-i", "--invert"):
+            config["invert"] = True
+
+        elif arg in ("-p", "--spread") and i + 1 < len(argv):
+            i += 1
+            try:
+                config["spread"] = max(0.1, float(argv[i]))
+            except ValueError:
+                pass
+
+        elif arg in ("-F", "--freq") and i + 1 < len(argv):
+            i += 1
+            try:
+                config["freq"] = float(argv[i])
+            except ValueError:
+                pass
+
+        elif arg in ("-S", "--seed") and i + 1 < len(argv):
+            i += 1
+            try:
+                config["seed"] = float(argv[i])
+            except ValueError:
+                pass
+
+        elif arg in ("-d", "--duration") and i + 1 < len(argv):
+            i += 1
+            try:
+                config["duration"] = max(1, int(argv[i]))
+            except ValueError:
+                pass
+
+        elif arg in ("-s", "--speed") and i + 1 < len(argv):
+            i += 1
+            try:
+                config["speed"] = max(1.0, float(argv[i]))
+            except ValueError:
+                pass
+
+        elif arg in ("-c", "--colors") and i + 1 < len(argv):
+            i += 1
+            raw_tokens = [t for t in argv[i].strip(",").split(",") if t.strip()]
+            parsed = [parse_color_token(t) for t in raw_tokens]
+            valid = [c for c in parsed if c is not None]
+            if valid:
+                config["mode"] = "custom"
+                config["custom_colors"] = valid
+
+        elif arg.startswith("-"):
+            # Check for custom color flags like -cyan,blue,green, or -blue,red
+            raw_flag = arg.lstrip("-").strip(",")
+            if raw_flag.lower() == "random":
+                config["mode"] = "random"
+                config["custom_colors"] = []
+            else:
+                tokens = [t.strip() for t in raw_flag.split(",") if t.strip()]
+                parsed = [parse_color_token(t) for t in tokens]
+                valid = [c for c in parsed if c is not None]
+                if valid:
+                    config["mode"] = "custom"
+                    config["custom_colors"] = valid
+        else:
+            config["files"].append(arg)
+
+        i += 1
+
+    return config
+
+
+def colorize_line(line, line_offset, config):
+    """Colorize a single line character-by-character using 24-bit TrueColor ANSI."""
+    # Strip trailing newline and expand tabs to 8 spaces like Ruby lolcat
+    line = line.rstrip("\r\n").expandtabs(8)
+    # Remove any preexisting ANSI color codes so output stays clean
+    clean_line = ANSI_ESCAPE_RE.sub("", line)
+
+    spread = config["spread"]
+    freq = config["freq"]
+    mode = config["mode"]
+    custom_colors = config["custom_colors"]
+    ansi_code_prefix = "48;2" if config["invert"] else "38;2"
+
+    out = []
+    for char_idx, ch in enumerate(clean_line):
+        # Whitespace doesn't need foreground color codes unless inverted
+        if ch == " " and not config["invert"]:
+            out.append(" ")
+            continue
+
+        i_val = line_offset + (char_idx / spread)
+        if mode == "custom" and custom_colors:
+            r, g, b = custom_gradient_color(custom_colors, freq, i_val)
+        else:
+            r, g, b = ruby_lolcat_rainbow(freq, i_val)
+
+        out.append(f"\x1b[{ansi_code_prefix};{r};{g};{b}m{ch}")
+
+    out.append("\x1b[0m")
+    return "".join(out)
+
+
+def process_stream(stream, config, seed):
+    """Read lines from stream and output smooth TrueColor text."""
+    line_idx = 0.0
+    for raw_line in stream:
+        line_idx += 1.0
+        base_offset = seed + (line_idx / config["spread"] * 2.2)
+
+        if config["animate"]:
+            # Hide cursor during line animation
+            sys.stdout.write("\x1b[?25l")
+            for step in range(1, config["duration"] + 1):
+                anim_offset = base_offset + (step * config["spread"] * 0.35)
+                colored = colorize_line(raw_line, anim_offset, config)
+                sys.stdout.write(f"\r{colored}")
+                sys.stdout.flush()
+                time.sleep(1.0 / config["speed"])
+            sys.stdout.write("\x1b[?25h\n")
+            sys.stdout.flush()
+        else:
+            colored = colorize_line(raw_line, base_offset, config)
+            sys.stdout.write(colored + "\n")
+            sys.stdout.flush()
+    return seed + line_idx
+
+
+def main():
+    # Ensure UTF-8 output on both Linux and Termux so box-drawing / ASCII-Shadow
+    # characters never break or throw encoding errors
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stdin, "reconfigure"):
+        try:
+            sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+    # 1. Verify $HOME/.jrcodex exists before anything else
+    check_codex_folder()
+
+    # 2. Parse CLI options
+    config = parse_args(sys.argv[1:])
+    seed = config["seed"] if config["seed"] is not None else random.uniform(0.0, 256.0)
+
+    try:
+        if config["files"]:
+            for filepath in config["files"]:
+                if filepath == "-":
+                    seed = process_stream(sys.stdin, config, seed)
+                else:
+                    with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                        seed = process_stream(f, config, seed)
+        else:
+            if sys.stdin.isatty():
+                # Still allow interactive stdin until EOF (Ctrl+D), just like lolcat
+                process_stream(sys.stdin, config, seed)
+            else:
+                process_stream(sys.stdin, config, seed)
+    except KeyboardInterrupt:
+        sys.stdout.write("\x1b[0m\x1b[?25h\n")
+        sys.stdout.flush()
+        sys.exit(130)
+    except BrokenPipeError:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

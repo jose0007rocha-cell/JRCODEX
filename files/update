@@ -1,0 +1,173 @@
+#!/bin/bash
+
+r='\033[91m'
+p='\033[1;95m'
+y='\033[93m'
+g='\033[92m'
+n='\033[0m'
+b='\033[94m'
+c='\033[96m'
+
+X='\033[1;92m[\033[1;00m⎯꯭̽𓆩\033[1;92m]\033[1;96m'
+D='\033[1;92m[\033[1;00m〄\033[1;92m]\033[1;93m'
+E='\033[1;92m[\033[1;00m×\033[1;92m]\033[1;91m'
+A='\033[1;92m[\033[1;00m+\033[1;92m]\033[1;92m'
+C='\033[1;92m[\033[1;00m</>\033[1;32m]\033[1;92m'
+HOST="\uf6c3"
+
+select_option() {
+    local selected=0 key key2
+    local options=("Update" "Cancel")
+
+    while true; do
+        clear
+        echo
+        echo -e "		       ${g}JRCODEX...♡"
+        echo -e "${c}              (\\_/)"
+        echo -e "              (${p}♡ω♡${c})"
+        echo -e "             ⊂(___)づ ᯓᡣ𐭩"
+        echo
+        echo -e " ${C} ${y}Do you want to Update JRCodex banner?${n}"
+        echo -e " ${A} ${c}Use ↑ / ↓ to select, Enter to confirm.${n}"
+        echo
+        echo -e " ${g}■ \e[4m${p}Select An Option\e[0m ${g}▪️︎${n}"
+        echo
+
+        for i in "${!options[@]}"; do
+            if (( i == selected )); then
+                if (( i == 0 )); then
+                    echo -e " ${g}〄> ${c}${options[$i]} ${g}<〄${n}"
+                else
+                    echo -e " ${r}〄> ${r}${options[$i]} ${r}<〄${n}"
+                fi
+            else
+                if (( i == 0 )); then
+                    echo -e "     ${options[$i]}"
+                else
+                    echo -e "     ${r}${options[$i]}${n}"
+                fi
+            fi
+        done
+
+        echo
+        IFS= read -rsn1 key
+
+        if [[ -z "$key" ]]; then
+            return "$selected"
+        fi
+
+        if [[ "$key" == $'\x1b' ]]; then
+            IFS= read -rsn2 -t 0.2 key2 || true
+            case "$key2" in
+                '[A') (( selected > 0 )) && ((selected--)) ;;
+                '[B') (( selected < ${#options[@]} - 1 )) && ((selected++)) ;;
+            esac
+        fi
+    done
+}
+
+dxnetcheck() {
+    clear
+    echo
+    echo -e "		                 ${g}Uhu"
+    echo -e "${c}                        (\\_/)"
+    echo -e "                        (${y}^_^${c})"
+    echo -e "                       ⊂(___)づ"
+    echo
+    echo -e "                ${g}╔════════════════╗"
+    echo -e "                ${g}║ ${n}</>  ${c}JRCODEX${g}   ║"
+    echo -e "                ${g}╚════════════════╝"
+    echo -e "  ${g}╔════════════════════════════════════════════╗"
+    echo -e "  ${g}║  ${y} Checking Your Internet Connection¡ ${g}      ║"
+    echo -e "  ${g}╚════════════════════════════════════════════╝${n}"
+    while true; do
+        curl --silent --head --fail https://github.com > /dev/null
+        if [ $? -ne 0 ]; then
+            clear
+            echo -e "\n\n              ${g}╔══════════════════╗"
+            echo -e "              ${g}║${C} ${r}No Internet ${g}║"
+            echo -e "              ${g}╚══════════════════╝"
+            sleep 1.5
+        else
+            break
+        fi
+    done
+    clear
+}
+
+banner() {
+    echo
+    echo -e "    ${y}            ░░░░░██╗██████╗░"
+    echo -e "    ${y}            ░░░░░██║██╔══██╗"
+    echo -e "    ${y}            ░░░░░██║██████╔╝"
+    echo -e "    ${c}            ██╗░░██║██╔══██╗"
+    echo -e "    ${c}            ╚█████╔╝██║░░██║"
+    echo -e "    ${c}            ░╚════╝░╚═╝░░╚═╝"
+    echo -e "    ${y}░█████╗░░█████╗░██████╗░███████╗██╗░░██╗"
+    echo -e "    ${y}██╔══██╗██╔══██╗██╔══██╗██╔════╝╚██╗██╔╝"
+    echo -e "    ${y}██║░░╚═╝██║░░██║██║░░██║█████╗░░░╚███╔╝░"
+    echo -e "    ${c}██║░░██╗██║░░██║██║░░██║██╔══╝░░░██╔██╗░"
+    echo -e "    ${c}╚█████╔╝╚█████╔╝██████╔╝███████╗██╔╝╚██╗"
+    echo -e "    ${c}░╚════╝░░╚════╝░╚═════╝░╚══════╝╚═╝░░╚═╝${n}"
+    echo
+}
+
+spin() {
+    local label="Updating Tools"
+    local pos=0 dir=1 i bar
+    
+    while kill -0 "$pid" 2>/dev/null; do
+        bar=""
+        for ((i=0; i<10; i++)); do
+            if ((i >= pos && i < pos+3)); then bar+="${g}▰${n}"; else bar+="${c}▱${n}"; fi
+        done
+        printf '\r\033[2K %b[%b%s%b] %b' "$g" "$n" "$label" "$g" "$bar"
+        sleep 0.1 2>/dev/null
+        ((pos+=dir))
+        if ((pos >= 7)); then dir=-1; elif ((pos <= 0)); then dir=1; fi
+    done
+    
+    wait "$pid" 2>/dev/null
+    local rc=$?
+    bar=""
+    if ((rc == 0)); then
+        for ((i=0; i<10; i++)); do bar+="${g}▰${n}"; done
+        printf '\r\033[2K %b[%b%s%b] %b | %bupdated%b\n' "$g" "$n" "$label" "$g" "$bar" "$g" "$n"
+    else
+        for ((i=0; i<10; i++)); do bar+="${c}▱${n}"; done
+        printf '\r\033[2K %b[%b%s%b] %b | %bFAIL%b\n' "$g" "$n" "$label" "$g" "$bar" "$r" "$n"
+    fi
+}
+
+if [ -d "$HOME/.jrcodex" ]; then
+    clear
+else
+    echo -e "\n ${g}[${n}$HOST${g}] ${c}JRCodex Not Exits${n}\n"
+    exit 0
+fi
+
+select_option
+selection=$?
+
+if (( selection == 1 )); then
+    echo -e "\n ${E} ${r}Process cancelled by user.${n}"
+    echo -e " ${C} ${y}Exiting... ${g}[${n}${HOST}${g}]${n}"
+    echo
+    exit 0
+fi
+
+dxnetcheck
+banner
+echo -e " ${A} ${c}JRCodex Initialization Started...${n}"
+sleep 1.5
+
+cd "$HOME" || exit 1
+rm -rf JRCODEX
+git clone https://github.com/jose0007rocha-cell/JRCODEX.git >/dev/null 2>&1 &
+pid=$!
+spin
+
+if [ -d "JRCODEX" ]; then
+    cd JRCODEX || exit 1
+    bash install.sh
+fi
